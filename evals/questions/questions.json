@@ -1,0 +1,102 @@
+[
+  {
+    "id": "q01",
+    "category": "lookup",
+    "question": "How many orders were canceled?",
+    "gold_sql": "SELECT count(*) FROM ecom.orders WHERE order_status = 'canceled';",
+    "expected_answer": 625,
+    "answer_type": "number",
+    "assumptions": "Counts orders whose status is exactly 'canceled'. Other statuses such as 'unavailable' are not included.",
+    "verified": true
+  },
+  {
+    "id": "q02",
+    "category": "lookup",
+    "question": "How many orders were delivered in 2018?",
+    "gold_sql": "SELECT count(*) FROM ecom.orders WHERE order_status = 'delivered' AND order_delivered_customer_date >= '2018-01-01' AND order_delivered_customer_date < '2019-01-01';",
+    "expected_answer": 55273,
+    "answer_type": "number",
+    "assumptions": "'In 2018' means the actual delivery date falls in 2018, not the purchase date. Only orders with status 'delivered' are counted.",
+    "verified": true
+  },
+  {
+    "id": "q03",
+    "category": "lookup",
+    "question": "How many customers are located in São Paulo state?",
+    "gold_sql": "SELECT count(DISTINCT customer_unique_id) FROM ecom.customers WHERE customer_state = 'SP';",
+    "expected_answer": 40302,
+    "answer_type": "number",
+    "assumptions": "A customer is a person (customer_unique_id), not a customer_id, because customer_id is created again for every order. São Paulo state is code 'SP'.",
+    "verified": true
+  },
+  {
+    "id": "q04",
+    "category": "lookup",
+    "question": "How many different sellers have sold at least one item?",
+    "gold_sql": "SELECT count(DISTINCT seller_id) FROM ecom.order_items;",
+    "expected_answer": 3095,
+    "answer_type": "number",
+    "assumptions": "Counts sellers appearing in order_items, whatever the order status. Sellers with no items are excluded.",
+    "verified": true
+  },
+  {
+    "id": "q05",
+    "category": "join",
+    "question": "What was the total revenue from delivered orders?",
+    "gold_sql": "SELECT round(sum(oi.price), 2) FROM ecom.order_items oi JOIN ecom.orders o ON o.order_id = oi.order_id WHERE o.order_status = 'delivered';",
+    "expected_answer": 13221498.11,
+    "answer_type": "number",
+    "assumptions": "Revenue is the sum of item price only, excluding freight. Only orders with status 'delivered' count. Compare with payment_value if you want to explain the difference.",
+    "verified": true
+  },
+  {
+    "id": "q06",
+    "category": "join",
+    "question": "What is the average review score for delivered orders?",
+    "gold_sql": "SELECT round(avg(r.review_score), 2) FROM ecom.order_reviews r JOIN ecom.orders o ON o.order_id = r.order_id WHERE o.order_status = 'delivered';",
+    "expected_answer": 4.16,
+    "answer_type": "number",
+    "assumptions": "Averages over reviews, not orders, so an order with two reviews counts twice. Only reviews on orders with status 'delivered' are used. Rounded to 2 decimals.",
+    "verified": true
+  },
+  {
+    "id": "q07",
+    "category": "join",
+    "question": "Which product category had the most items sold?",
+    "gold_sql": "SELECT COALESCE(t.product_category_name_english, p.product_category_name) AS category, count(*) AS items_sold FROM ecom.order_items oi JOIN ecom.products p ON p.product_id = oi.product_id LEFT JOIN ecom.category_translation t ON t.product_category_name = p.product_category_name WHERE p.product_category_name IS NOT NULL GROUP BY 1 ORDER BY items_sold DESC, category LIMIT 1;",
+    "expected_answer": "bed_bath_table",
+    "answer_type": "text",
+    "assumptions": "An item sold is one row in order_items, whatever the order status. Uses the English category name, falling back to the Portuguese name when no translation exists. Products with no category are excluded. Ties are broken alphabetically.",
+    "verified": true
+  },
+  {
+    "id": "q08",
+    "category": "aggregation",
+    "question": "Which 5 states placed the most orders?",
+    "gold_sql": "SELECT c.customer_state, count(*) AS orders FROM ecom.orders o JOIN ecom.customers c ON c.customer_id = o.customer_id GROUP BY c.customer_state ORDER BY orders DESC, c.customer_state LIMIT 5;",
+    "expected_answer": ["SP", "RJ", "MG", "RS", "PR"],
+    "answer_type": "list",
+    "assumptions": "Counts all orders whatever their status, by the customer's state. Ties are broken alphabetically by state code. Verified counts: SP 41746, RJ 12852, MG 11635, RS 5466, PR 5045.",
+    "verified": true
+  },
+  {
+    "id": "q09",
+    "category": "aggregation",
+    "question": "Which month of 2017 had the most orders?",
+    "gold_sql": "SELECT to_char(date_trunc('month', order_purchase_timestamp), 'YYYY-MM') AS month, count(*) AS orders FROM ecom.orders WHERE order_purchase_timestamp >= '2017-01-01' AND order_purchase_timestamp < '2018-01-01' GROUP BY 1 ORDER BY orders DESC, month LIMIT 1;",
+    "expected_answer": "2017-11",
+    "answer_type": "text",
+    "assumptions": "Verified: 2017-11 with 7544 orders.",
+    "verified": true
+  },
+  {
+    "id": "q10",
+    "category": "ambiguous",
+    "question": "How many orders were delivered late?",
+    "gold_sql": "SELECT count(*) FROM ecom.orders WHERE order_status = 'delivered' AND order_delivered_customer_date IS NOT NULL AND order_delivered_customer_date > order_estimated_delivery_date;",
+    "expected_answer": 7826,
+    "answer_type": "number",
+    "assumptions": "Late means delivered after the estimated delivery date. Only 'delivered' orders with a recorded delivery date are counted; undelivered or canceled orders are not 'late'.",
+    "verified": true
+  }
+]
